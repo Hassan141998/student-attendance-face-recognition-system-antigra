@@ -1,5 +1,2 @@
+# Vercel expects the Flask app to be exported as 'app'
 from app import app
-
-# Vercel serverless function handler
-def handler(request, context):
-    return app(request, context)
