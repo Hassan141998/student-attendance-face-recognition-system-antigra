@@ -155,15 +155,22 @@ def reports():
         records = Attendance.query.all()
     return render_template('reports.html', records=records)
 
-
-# Initialize database tables
-with app.app_context():
-    db.create_all()
-    # Create default admin user if not exists
-    if not User.query.filter_by(username='admin').first():
-        admin = User(username='admin', password=generate_password_hash('admin123'))
-        db.session.add(admin)
-        db.session.commit()
+# Special endpoint for one-time database initialization
+@app.route('/init-db')
+def init_database():
+    """Call this endpoint once to initialize database tables and admin user"""
+    try:
+        with app.app_context():
+            db.create_all()
+            # Create default admin user if not exists
+            if not User.query.filter_by(username='admin').first():
+                admin = User(username='admin', password=generate_password_hash('admin123'))
+                db.session.add(admin)
+                db.session.commit()
+                return jsonify({'message': 'Database initialized successfully! Admin user created (admin/admin123)'}), 200
+            return jsonify({'message': 'Database tables created. Admin user already exists.'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
