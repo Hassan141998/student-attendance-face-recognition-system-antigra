@@ -10,7 +10,10 @@ import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this' # Change for production
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///attendance.db'
+database_url = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
@@ -28,14 +31,7 @@ def load_user(user_id):
 # Create database tables manually first time if deemed necessary, 
 # or use flask shell. For now, we'll do it on first request or main.
 
-@app.before_first_request
-def create_tables():
-    db.create_all()
-    # Create default admin user if not exists
-    if not User.query.filter_by(username='admin').first():
-        admin = User(username='admin', password=generate_password_hash('admin123'))
-        db.session.add(admin)
-        db.session.commit()
+# Database creation logic moved to main block
 
 # Routes
 @app.route('/')
