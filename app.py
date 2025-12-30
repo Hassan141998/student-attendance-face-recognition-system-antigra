@@ -1,0 +1,179 @@
+import os
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask_socketio import SocketIO, emit
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models import db, User, Student, Attendance
+from datetime import datetime
+import json
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key-change-this' # Change for production
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///attendance.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize extensions
+db.init_app(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+CORS(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Create database tables manually first time if deemed necessary, 
+# or use flask shell. For now, we'll do it on first request or main.
+
+@app.before_first_request
+def create_tables():
+    db.create_all()
+    # Create default admin user if not exists
+    if not User.query.filter_by(username='admin').first():
+        admin = User(username='admin', password=generate_password_hash('admin123'))
+        db.session.add(admin)
+        db.session.commit()
+
+# Routes
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        flash('Invalid username or password')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    today = datetime.utcnow().date()
+    total_students = Student.query.count()
+    present_today = Attendance.query.filter_by(date=today, status='Present').count()
+    # Assuming absent = total - present for simplicity, or complex query if we track 'Absent' explicitly
+    absent_today = total_students - present_today 
+    attendance_rate = 0
+    if total_students > 0:
+        attendance_rate = round((present_today / total_students) * 100, 1)
+
+    recent_attendance = Attendance.query.order_by(Attendance.time.desc()).limit(10).all()
+    
+    return render_template('dashboard.html', 
+                           total_students=total_students, 
+                           present_today=present_today, 
+                           absent_today=absent_today,
+                           attendance_rate=attendance_rate,
+                           recent_attendance=recent_attendance)
+
+@app.route('/students')
+@login_required
+def students():
+    all_students = Student.query.all()
+    return render_template('students.html', students=all_students)
+
+@app.route('/api/students', methods=['POST'])
+@login_required
+def add_student():
+    data = request.json
+    name = data.get('name')
+    roll_number = data.get('roll_number')
+    email = data.get('email')
+    face_descriptor = data.get('face_descriptor') # List/Array from JS
+
+    if Student.query.filter_by(roll_number=roll_number).first():
+        return jsonify({'error': 'Roll number already exists'}), 400
+    
+    new_student = Student(
+        name=name, 
+        roll_number=roll_number, 
+        email=email,
+        face_encoding=json.dumps(face_descriptor)
+    )
+    db.session.add(new_student)
+    db.session.commit()
+    return jsonify({'message': 'Student added successfully'})
+
+@app.route('/api/students/all', methods=['GET'])
+def get_all_students_descriptors():
+    # Public or protected endpoint to get descriptors for face matching on client
+    # For security, you might want to protect this, but client-side matching needs access
+    students = Student.query.all()
+    data = []
+    for s in students:
+        if s.face_encoding:
+            data.append({
+                'id': s.id,
+                'name': s.name,
+                'descriptor': json.loads(s.face_encoding)
+            })
+    return jsonify(data)
+
+@app.route('/attendance')
+@login_required
+def attendance_page():
+    return render_template('attendance.html')
+
+@app.route('/api/attendance', methods=['POST'])
+@login_required
+def mark_attendance():
+    data = request.json
+    student_id = data.get('student_id')
+    
+    # Check if already marked for today
+    today = datetime.utcnow().date()
+    existing = Attendance.query.filter_by(student_id=student_id, date=today).first()
+    
+    if existing:
+        return jsonify({'message': 'Attendance already marked', 'status': 'duplicate'}), 200
+
+    new_attendance = Attendance(student_id=student_id, status='Present', date=today, time=datetime.utcnow().time())
+    db.session.add(new_attendance)
+    db.session.commit()
+    
+    # Real-time update
+    socketio.emit('attendance_update', {
+        'student_name': new_attendance.student.name,
+        'time': str(new_attendance.time),
+        'status': 'Present'
+    })
+    
+    return jsonify({'message': 'Attendance marked successfully', 'status': 'success'})
+
+@app.route('/reports')
+@login_required
+def reports():
+    date_str = request.args.get('date')
+    if date_str:
+        filter_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        records = Attendance.query.filter_by(date=filter_date).all()
+    else:
+        records = Attendance.query.all()
+    return render_template('reports.html', records=records)
+
+if __name__ == '__main__':
+    if not os.path.exists('attendance.db'):
+        with app.app_context():
+            db.create_all()
+            if not User.query.filter_by(username='admin').first():
+                admin = User(username='admin', password=generate_password_hash('admin123'))
+                db.session.add(admin)
+                db.session.commit()
+    socketio.run(app, debug=True)

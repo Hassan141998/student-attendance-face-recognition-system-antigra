@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-800">Dashboard</h1>
+    <p class="text-gray-500">Overview of today's attendance metrics</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Students -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-users"></i>
+        </div>
+        <div>
+            <h3 class="text-gray-500 text-sm font-medium">Total Students</h3>
+            <p class="text-2xl font-bold text-gray-800">{{ total_students }}</p>
+        </div>
+    </div>
+
+    <!-- Present Today -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-user-check"></i>
+        </div>
+        <div>
+            <h3 class="text-gray-500 text-sm font-medium">Present Today</h3>
+            <p class="text-2xl font-bold text-gray-800">{{ present_today }}</p>
+        </div>
+    </div>
+
+    <!-- Absent Today -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-user-xmark"></i>
+        </div>
+        <div>
+            <h3 class="text-gray-500 text-sm font-medium">Absent Today</h3>
+            <p class="text-2xl font-bold text-gray-800">{{ absent_today }}</p>
+        </div>
+    </div>
+
+    <!-- Attendance Rate -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <div>
+            <h3 class="text-gray-500 text-sm font-medium">Attendance Rate</h3>
+            <p class="text-2xl font-bold text-gray-800">{{ attendance_rate }}%</p>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Attendance & Quick Actions -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Recent Activity -->
+    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-gray-800">Recent Attendance</h2>
+            <a href="{{ url_for('reports') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View
+                All</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="px-6 py-4 font-medium">Student</th>
+                        <th class="px-6 py-4 font-medium">Time</th>
+                        <th class="px-6 py-4 font-medium">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for record in recent_attendance %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold">
+                                    {{ record.student.name[:2].upper() }}
+                                </div>
+                                <span class="font-medium text-gray-800">{{ record.student.name }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-gray-600 text-sm">
+                            {{ record.time.strftime('%I:%M %p') }}
+                        </td>
+                        <td class="px-6 py-4">
+                            <span
+                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {{ record.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="px-6 py-8 text-center text-gray-500">
+                            No attendance records for today mainly.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Quick Actions</h2>
+        <div class="space-y-3">
+            <a href="{{ url_for('attendance_page') }}"
+                class="block w-full p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition flex items-center justify-between">
+                <span class="font-medium">Launch Scanner</span>
+                <i class="fa-solid fa-camera"></i>
+            </a>
+            <a href="{{ url_for('students') }}"
+                class="block w-full p-4 rounded-xl bg-gray-50 border border-gray-100 text-gray-700 hover:bg-gray-100 transition flex items-center justify-between">
+                <span class="font-medium">Add Student</span>
+                <i class="fa-solid fa-user-plus"></i>
+            </a>
+            <a href="{{ url_for('reports') }}"
+                class="block w-full p-4 rounded-xl bg-gray-50 border border-gray-100 text-gray-700 hover:bg-gray-100 transition flex items-center justify-between">
+                <span class="font-medium">Download Report</span>
+                <i class="fa-solid fa-download"></i>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

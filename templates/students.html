@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">Students</h1>
+        <p class="text-gray-500">Manage student records and face data</p>
+    </div>
+    <button onclick="openAddModal()"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium shadow-lg shadow-indigo-200 transition flex items-center gap-2">
+        <i class="fa-solid fa-plus"></i> Add Student
+    </button>
+</div>
+
+<!-- Students Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    {% for student in students %}
+    <div
+        class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col items-center text-center group hover:shadow-md transition">
+        <div class="w-24 h-24 rounded-full bg-gray-100 mb-4 overflow-hidden relative">
+            {% if student.photo_path %}
+            <img src="{{ student.photo_path }}" alt="{{ student.name }}" class="w-full h-full object-cover">
+            {% else %}
+            <div class="w-full h-full flex items-center justify-center text-gray-400 text-3xl">
+                <i class="fa-solid fa-user"></i>
+            </div>
+            {% endif %}
+            <div
+                class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
+                <button class="text-white hover:text-indigo-200"><i class="fa-solid fa-pen"></i></button>
+            </div>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 mb-1">{{ student.name }}</h3>
+        <p class="text-sm text-gray-500 mb-1">Roll No: {{ student.roll_number }}</p>
+        <p class="text-xs text-gray-400 mb-4">{{ student.email }}</p>
+        <div class="mt-auto w-full">
+            <span
+                class="block w-full py-2 rounded-lg bg-green-50 text-green-700 text-xs font-medium border border-green-100">
+                <i class="fa-solid fa-check-circle mr-1"></i> Face Registered
+            </span>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-span-full py-12 text-center">
+        <div
+            class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400 text-3xl">
+            <i class="fa-solid fa-users-slash"></i>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800">No Students Found</h3>
+        <p class="text-gray-500">Get started by adding a new student.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Student Modal -->
+<div id="addStudentModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeAddModal()"></div>
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl">
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="text-xl font-bold text-gray-800">Register New Student</h3>
+                <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600"><i
+                        class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <div class="p-6">
+                <!-- Step 1: Details -->
+                <div id="step1" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                        <input type="text" id="studentName"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                            placeholder="e.g. John Doe">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
+                        <input type="text" id="studentRoll"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                            placeholder="e.g. CS-2023-001">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                        <input type="email" id="studentEmail"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                            placeholder="e.g. john@example.com">
+                    </div>
+                    <div class="pt-4">
+                        <button onclick="goToStep2()"
+                            class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">
+                            Next: Face Registration <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Face Capture -->
+                <div id="step2" class="hidden space-y-4">
+                    <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-4">
+                        <video id="videoInput" class="w-full h-full object-cover" autoplay muted></video>
+                        <canvas id="overlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                        <div id="loadingModel"
+                            class="absolute inset-0 flex items-center justify-center bg-white/80 z-20">
+                            <div class="flex flex-col items-center">
+                                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-2">
+                                </div>
+                                <p class="text-sm font-medium text-gray-600">Loading Face Models...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="text-sm text-gray-500 mb-4" id="faceStatus">Please position your face in the center
+                        </p>
+                        <div class="flex gap-3 justify-center">
+                            <button onclick="goToStep1()"
+                                class="px-6 py-3 rounded-xl font-medium text-gray-600 hover:bg-gray-100 transition border border-transparent hover:border-gray-200">
+                                Back
+                            </button>
+                            <button id="captureBtn" onclick="captureAndRefister()"
+                                class="px-6 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled>
+                                <i class="fa-solid fa-camera mr-2"></i> Capture & Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/face-api.min.js') }}"></script>
+<script>
+    let stream = null;
+    let modelsLoaded = false;
+    let detectedDescriptor = null;
+
+    function openAddModal() {
+        document.getElementById('addStudentModal').classList.remove('hidden');
+        loadModels();
+    }
+
+    function closeAddModal() {
+        document.getElementById('addStudentModal').classList.add('hidden');
+        stopCamera();
+        // Reset steps
+        document.getElementById('step1').classList.remove('hidden');
+        document.getElementById('step2').classList.add('hidden');
+    }
+
+    function goToStep2() {
+        const name = document.getElementById('studentName').value;
+        const roll = document.getElementById('studentRoll').value;
+        const email = document.getElementById('studentEmail').value;
+
+        if (!name || !roll || !email) {
+            alert('Please fill all fields');
+            return;
+        }
+
+        document.getElementById('step1').classList.add('hidden');
+        document.getElementById('step2').classList.remove('hidden');
+        startCamera();
+    }
+
+    function goToStep1() {
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step1').classList.remove('hidden');
+        stopCamera();
+    }
+
+    async function loadModels() {
+        if (modelsLoaded) return;
+        // In a real scenario, correct path to models
+        // We will assume models are in /static/models
+        try {
+            await faceapi.nets.tinyFaceDetector.loadFromUri('/static/models');
+            await faceapi.nets.faceLandmark68Net.loadFromUri('/static/models');
+            await faceapi.nets.faceRecognitionNet.loadFromUri('/static/models');
+            await faceapi.nets.ssdMobilenetv1.loadFromUri('/static/models');
+            modelsLoaded = true;
+            document.getElementById('loadingModel').classList.add('hidden');
+        } catch (e) {
+            console.error("Error loading models", e);
+            document.getElementById('faceStatus').innerText = "Error loading face models. Please check console.";
+        }
+    }
+
+    async function startCamera() {
+        const video = document.getElementById('videoInput');
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            video.srcObject = stream;
+
+            video.addEventListener('play', () => {
+                const canvas = document.getElementById('overlayCanvas');
+                const displaySize = { width: video.clientWidth, height: video.clientHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                setInterval(async () => {
+                    if (!modelsLoaded || video.paused || video.ended) return;
+
+                    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
+                    if (detections) {
+                        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                        faceapi.draw.drawDetections(canvas, resizedDetections);
+
+                        detectedDescriptor = detections.descriptor;
+                        document.getElementById('captureBtn').disabled = false;
+                        document.getElementById('faceStatus').innerText = "Face Detected! Ready to capture.";
+                        document.getElementById('faceStatus').classList.add('text-green-600');
+                    } else {
+                        document.getElementById('captureBtn').disabled = true;
+                        document.getElementById('faceStatus').innerText = "No face detected. Please adjust position.";
+                        document.getElementById('faceStatus').classList.remove('text-green-600');
+                    }
+                }, 100);
+            });
+
+        } catch (err) {
+            console.error("Camera error:", err);
+            alert("Could not access camera");
+        }
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    async function captureAndRefister() {
+        if (!detectedDescriptor) return;
+
+        const name = document.getElementById('studentName').value;
+        const roll = document.getElementById('studentRoll').value;
+        const email = document.getElementById('studentEmail').value;
+
+        // Convert Float32Array to regular array for JSON
+        const descriptorArray = Array.from(detectedDescriptor);
+
+        try {
+            const response = await fetch('/api/students', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    roll_number: roll,
+                    email: email,
+                    face_descriptor: descriptorArray
+                })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert('Student registered successfully!');
+                closeAddModal();
+                location.reload();
+            } else {
+                alert('Error: ' + result.error || 'Unknown error');
+            }
+        } catch (e) {
+            alert('Network error');
+            console.error(e);
+        }
+    }
+</script>
+{% endblock %}

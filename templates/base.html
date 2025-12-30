@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Attendance System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#10b981',
+                        dark: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    {% if current_user.is_authenticated %}
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-lg z-10 hidden md:block">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white">
+                        <i class="fa-solid fa-camera"></i>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-800">SmartAttend</h1>
+                </div>
+                <nav class="space-y-2">
+                    <a href="{{ url_for('dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ 'bg-indigo-50 text-indigo-600 font-medium' if request.endpoint == 'dashboard' else 'text-gray-600 hover:bg-gray-50' }}">
+                        <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+                    </a>
+                    <a href="{{ url_for('attendance_page') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ 'bg-indigo-50 text-indigo-600 font-medium' if request.endpoint == 'attendance_page' else 'text-gray-600 hover:bg-gray-50' }}">
+                        <i class="fa-solid fa-user-check w-5"></i> Mark Attendance
+                    </a>
+                    <a href="{{ url_for('students') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ 'bg-indigo-50 text-indigo-600 font-medium' if request.endpoint == 'students' else 'text-gray-600 hover:bg-gray-50' }}">
+                        <i class="fa-solid fa-users w-5"></i> Students
+                    </a>
+                    <a href="{{ url_for('reports') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ 'bg-indigo-50 text-indigo-600 font-medium' if request.endpoint == 'reports' else 'text-gray-600 hover:bg-gray-50' }}">
+                        <i class="fa-solid fa-file-csv w-5"></i> Reports
+                    </a>
+                </nav>
+            </div>
+            <div class="absolute bottom-0 w-64 p-6 border-t border-gray-100">
+                <a href="{{ url_for('logout') }}" class="flex items-center gap-3 text-red-500 hover:text-red-700 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto bg-gray-50 relative">
+            <!-- Mobile Header -->
+            <header class="md:hidden bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-20">
+                <div class="font-bold text-lg text-indigo-600">SmartAttend</div>
+                <button class="text-gray-600"><i class="fa-solid fa-bars text-xl"></i></button>
+            </header>
+
+            <div class="p-4 md:p-8 max-w-7xl mx-auto">
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    <div class="mb-6 space-y-2">
+                      {% for message in messages %}
+                        <div class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-r shadow-sm" role="alert">
+                            <p>{{ message }}</p>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    {% else %}
+        {% block auth_content %}{% endblock %}
+    {% endif %}
+
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script>
+        // Global Socket.io instance
+        // const socket = io(); 
+        // Uncomment when needed in specific templates
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

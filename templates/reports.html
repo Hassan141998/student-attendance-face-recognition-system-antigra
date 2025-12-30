@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800">Attendance Reports</h1>
+        <p class="text-gray-500">View and export attendance history</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <input type="date" value="{{ request.args.get('date', '') }}"
+            onchange="window.location.href = '?date=' + this.value"
+            class="px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+        <button onclick="exportTableToCSV('attendance_report.csv')"
+            class="bg-gray-800 text-white px-4 py-2 rounded-xl hover:bg-gray-900 transition flex items-center gap-2">
+            <i class="fa-solid fa-file-export"></i> Export CSV
+        </button>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left" id="reportTable">
+            <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                <tr>
+                    <th class="px-6 py-4 font-medium">Date</th>
+                    <th class="px-6 py-4 font-medium">Student Info</th>
+                    <th class="px-6 py-4 font-medium">Time</th>
+                    <th class="px-6 py-4 font-medium">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for record in records %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 text-gray-600 font-medium">
+                        {{ record.date.strftime('%Y-%m-%d') }}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-bold">
+                                {{ record.student.name[:2].upper() }}
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">{{ record.student.name }}</p>
+                                <p class="text-xs text-gray-400">{{ record.student.roll_number }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-gray-500 font-mono text-sm">
+                        {{ record.time.strftime('%H:%M:%S') }}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {{ record.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                        <i class="fa-solid fa-clipboard-list text-3xl mb-3 block"></i>
+                        No records found for this selection
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function exportTableToCSV(filename) {
+        var csv = [];
+        var rows = document.querySelectorAll("table tr");
+
+        for (var i = 0; i < rows.length; i++) {
+            var row = [], cols = rows[i].querySelectorAll("td, th");
+
+            for (var j = 0; j < cols.length; j++)
+                row.push(cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim());
+
+            csv.push(row.join(","));
+        }
+
+        downloadCSV(csv.join("\n"), filename);
+    }
+
+    function downloadCSV(csv, filename) {
+        var csvFile;
+        var downloadLink;
+
+        csvFile = new Blob([csv], { type: "text/csv" });
+        downloadLink = document.createElement("a");
+        downloadLink.download = filename;
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-800">Mark Attendance</h1>
+    <p class="text-gray-500">Real-time face recognition attendance system</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Camera Feed -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-black rounded-2xl overflow-hidden relative shadow-lg aspect-video">
+            <video id="videoInput" class="w-full h-full object-cover" autoplay muted></video>
+            <canvas id="overlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+            <!-- Status Indicators -->
+            <div id="loadingModel"
+                class="absolute inset-0 flex items-center justify-center bg-gray-900/90 z-20 transition-opacity duration-300">
+                <div class="text-center">
+                    <div
+                        class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4">
+                    </div>
+                    <h3 class="text-white font-bold text-lg">Initializing System</h3>
+                    <p class="text-gray-400 text-sm">Loading AI Models...</p>
+                </div>
+            </div>
+
+            <div class="absolute top-4 right-4 z-10">
+                <div
+                    class="flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse" id="liveIndicator"></div>
+                    <span class="text-xs font-medium text-white uppercase tracking-wider">Live</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <i class="fa-solid fa-camera"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-800">Camera Status</p>
+                    <p class="text-xs text-green-600 font-medium" id="cameraStatus">Active</p>
+                </div>
+            </div>
+            <button onclick="toggleCamera()" class="text-gray-500 hover:text-indigo-600 transition">
+                <i class="fa-solid fa-power-off text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Live Log -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-[600px]">
+        <div class="p-6 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800">Live Attendance Log</h2>
+            <p class="text-xs text-gray-500">Real-time marks</p>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-3" id="attendanceLog">
+            <!-- Dynamic items will be added here -->
+            <div class="text-center py-10 text-gray-400 text-sm">
+                Waiting for students...
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/face-api.min.js') }}"></script>
+<script>
+    const socket = io();
+    let stream = null;
+    let modelsLoaded = false;
+    let labeledFaceDescriptors = [];
+
+    // Load Models
+    async function init() {
+        try {
+            // Load models from local storage or CDN if needed
+            // For this demo, assuming standard path /static/models
+            await faceapi.nets.tinyFaceDetector.loadFromUri('/static/models');
+            await faceapi.nets.faceLandmark68Net.loadFromUri('/static/models');
+            await faceapi.nets.faceRecognitionNet.loadFromUri('/static/models');
+            await faceapi.nets.ssdMobilenetv1.loadFromUri('/static/models');
+
+            console.log("Models loaded");
+            await loadLabeledImages();
+
+            modelsLoaded = true;
+            document.getElementById('loadingModel').classList.add('opacity-0', 'pointer-events-none');
+
+            startVideo();
+        } catch (e) {
+            console.error("Error initializing:", e);
+            alert("Error loading AI models. Make sure models are in /static/models");
+        }
+    }
+
+    async function loadLabeledImages() {
+        // Fetch descriptors from backend
+        try {
+            const response = await fetch('/api/students/all');
+            const data = await response.json();
+
+            labeledFaceDescriptors = data.map(student => {
+                const descriptor = new Float32Array(student.descriptor);
+                return new faceapi.LabeledFaceDescriptors(student.id.toString(), [descriptor]);
+            });
+            console.log("Loaded descriptors for", labeledFaceDescriptors.length, "students");
+        } catch (e) {
+            console.error("Error loading student data", e);
+        }
+    }
+
+    async function startVideo() {
+        const video = document.getElementById('videoInput');
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error(err);
+            document.getElementById('cameraStatus').innerText = "Access Denied";
+            document.getElementById('cameraStatus').classList.replace('text-green-600', 'text-red-600');
+        }
+    }
+
+    function toggleCamera() {
+        const video = document.getElementById('videoInput');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+            video.srcObject = null;
+            document.getElementById('cameraStatus').innerText = "Inactive";
+            document.getElementById('cameraStatus').classList.replace('text-green-600', 'text-gray-500');
+            document.getElementById('liveIndicator').classList.remove('bg-red-500', 'animate-pulse');
+            document.getElementById('liveIndicator').classList.add('bg-gray-400');
+        } else {
+            startVideo();
+            document.getElementById('cameraStatus').innerText = "Active";
+            document.getElementById('cameraStatus').classList.replace('text-gray-500', 'text-green-600');
+            document.getElementById('liveIndicator').classList.add('bg-red-500', 'animate-pulse');
+            document.getElementById('liveIndicator').classList.remove('bg-gray-400');
+        }
+    }
+
+    // Recognition Loop
+    const video = document.getElementById('videoInput');
+    video.addEventListener('play', () => {
+        const canvas = document.getElementById('overlayCanvas');
+        const displaySize = { width: video.clientWidth, height: video.clientHeight };
+        faceapi.matchDimensions(canvas, displaySize);
+
+        setInterval(async () => {
+            if (!modelsLoaded || !stream) return;
+
+            // Detect faces
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptors();
+
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            faceapi.draw.drawDetections(canvas, resizedDetections);
+
+            if (labeledFaceDescriptors.length === 0) return;
+
+            const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+
+            const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
+
+            results.forEach((result, i) => {
+                const box = resizedDetections[i].detection.box;
+                const drawBox = new faceapi.draw.DrawBox(box, { label: result.toString() });
+                drawBox.draw(canvas);
+
+                if (result.label !== 'unknown') {
+                    // Mark attendance
+                    markAttendance(result.label);
+                }
+            });
+
+        }, 200);
+    });
+
+    let lastMarked = {}; // Prevent spamming requests {id: timestamp}
+
+    async function markAttendance(studentId) {
+        const now = Date.now();
+        if (lastMarked[studentId] && (now - lastMarked[studentId] < 10000)) {
+            return; // 10 seconds cooldown
+        }
+
+        lastMarked[studentId] = now;
+
+        try {
+            const response = await fetch('/api/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: studentId })
+            });
+            const data = await response.json();
+            console.log(data);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Creating a clean card for logs
+    function createLogCard(name, time, status) {
+        return `
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 animate-in fade-in slide-in-from-right-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                        ${name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-800">${name}</p>
+                        <p class="text-xs text-gray-500">${time}</p>
+                    </div>
+                </div>
+                <span class="px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs font-bold">
+                    ${status}
+                </span>
+            </div>
+        `;
+    }
+
+    // Socket Listener
+    socket.on('attendance_update', function (data) {
+        const logContainer = document.getElementById('attendanceLog');
+
+        // Remove "Waiting" text if it exists
+        if (logContainer.children.length > 0 && logContainer.children[0].classList.contains('text-center')) {
+            logContainer.innerHTML = '';
+        }
+
+        const html = createLogCard(data.student_name, data.time, data.status);
+        logContainer.insertAdjacentHTML('afterbegin', html);
+    });
+
+    // Start
+    window.onload = init;
+</script>
+{% endblock %}
