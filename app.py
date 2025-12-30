@@ -1,6 +1,5 @@
 import os
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -9,7 +8,7 @@ from datetime import datetime
 import json
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this' # Change for production
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -18,7 +17,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
 CORS(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -144,13 +142,6 @@ def mark_attendance():
     db.session.add(new_attendance)
     db.session.commit()
     
-    # Real-time update
-    socketio.emit('attendance_update', {
-        'student_name': new_attendance.student.name,
-        'time': str(new_attendance.time),
-        'status': 'Present'
-    })
-    
     return jsonify({'message': 'Attendance marked successfully', 'status': 'success'})
 
 @app.route('/reports')
@@ -164,12 +155,15 @@ def reports():
         records = Attendance.query.all()
     return render_template('reports.html', records=records)
 
+
+# Initialize database tables
+with app.app_context():
+    db.create_all()
+    # Create default admin user if not exists
+    if not User.query.filter_by(username='admin').first():
+        admin = User(username='admin', password=generate_password_hash('admin123'))
+        db.session.add(admin)
+        db.session.commit()
+
 if __name__ == '__main__':
-    if not os.path.exists('attendance.db'):
-        with app.app_context():
-            db.create_all()
-            if not User.query.filter_by(username='admin').first():
-                admin = User(username='admin', password=generate_password_hash('admin123'))
-                db.session.add(admin)
-                db.session.commit()
-    socketio.run(app, debug=True)
+    app.run(debug=True)
