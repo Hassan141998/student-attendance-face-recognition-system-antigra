@@ -27,4 +27,3 @@ class Attendance(db.Model):
     status = db.Column(db.String(20), default='Present')  # Present, Absent, Late
     photo = db.Column(db.Text)  # Store base64 encoded photo when marking attendance
     detected_objects = db.Column(db.Text)  # Store JSON array of detected objects
-    student = db.relationship('Student', backref='attendance_records')
