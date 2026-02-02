@@ -51,7 +51,10 @@ def login():
             flash('Invalid username or password')
         except Exception as e:
             flash(f"System Error: {str(e)}")
-    return render_template('login.html')
+    try:
+        return render_template('login.html')
+    except Exception as e:
+        return f"CRITICAL RENDER ERROR: {str(e)}", 500
 
 @app.route('/logout')
 @login_required
