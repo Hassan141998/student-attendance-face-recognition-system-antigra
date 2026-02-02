@@ -192,6 +192,8 @@ def reports():
         records = Attendance.query.all()
     return render_template('reports.html', records=records)
 
+from sqlalchemy import text
+
 # Special endpoint for one-time database initialization
 @app.route('/init-db')
 def init_database():
@@ -199,13 +201,25 @@ def init_database():
     try:
         with app.app_context():
             db.create_all()
+            
+            # Manually add new columns if they don't exist (SQLAlchemy won't add them to existing tables)
+            try:
+                db.session.execute(text('ALTER TABLE student ADD COLUMN IF NOT EXISTS profile_image TEXT'))
+                db.session.execute(text('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS photo TEXT'))
+                db.session.execute(text('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS detected_objects TEXT'))
+                db.session.commit()
+            except Exception as sql_e:
+                print(f"Migration note: {str(sql_e)}")
+                # If IF NOT EXISTS is not supported or other issue, we continue
+                db.session.rollback()
+
             # Create default admin user if not exists
             if not User.query.filter_by(username='admin').first():
                 admin = User(username='admin', password=generate_password_hash('admin123'))
                 db.session.add(admin)
                 db.session.commit()
                 return jsonify({'message': 'Database initialized successfully! Admin user created (admin/admin123)'}), 200
-            return jsonify({'message': 'Database tables created. Admin user already exists.'}), 200
+            return jsonify({'message': 'Database tables updated. Admin user already exists.'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
