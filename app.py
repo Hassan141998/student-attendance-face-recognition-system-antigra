@@ -21,8 +21,26 @@ CORS(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+login_manager.login_view = 'login'
 
-@login_manager.user_loader
+# Enable error propagation to see errors in Vercel logs
+app.config['PROPAGATE_EXCEPTIONS'] = True
+
+@app.errorhandler(500)
+def internal_error(error):
+    return f"GLOBAL 500 ERROR: {str(error)}", 500
+
+@app.errorhandler(Exception)
+def unhandled_exception(e):
+    return f"UNHANDLED EXCEPTION: {str(e)}", 500
+
+@app.route('/debug')
+def debug():
+    return jsonify({
+        'status': 'online',
+        'db_url': app.config.get('SQLALCHEMY_DATABASE_URI', '').split('@')[-1] if app.config.get('SQLALCHEMY_DATABASE_URI') else 'None',
+        'models_loaded': True
+    })
 def load_user(user_id):
     return User.query.get(int(user_id))
 
