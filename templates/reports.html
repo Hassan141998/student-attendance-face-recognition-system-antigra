@@ -12,7 +12,11 @@
             class="px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
         <button onclick="exportTableToCSV('attendance_report.csv')"
             class="bg-gray-800 text-white px-4 py-2 rounded-xl hover:bg-gray-900 transition flex items-center gap-2">
-            <i class="fa-solid fa-file-export"></i> Export CSV
+            <i class="fa-solid fa-file-csv"></i> Export CSV
+        </button>
+        <button onclick="exportToPDF()"
+            class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition flex items-center gap-2">
+            <i class="fa-solid fa-file-pdf"></i> Export PDF
         </button>
     </div>
 </div>
@@ -22,6 +26,7 @@
         <table class="w-full text-left" id="reportTable">
             <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                 <tr>
+                    <th class="px-6 py-4 font-medium">Photo</th>
                     <th class="px-6 py-4 font-medium">Date</th>
                     <th class="px-6 py-4 font-medium">Student Info</th>
                     <th class="px-6 py-4 font-medium">Time</th>
@@ -31,6 +36,16 @@
             <tbody class="divide-y divide-gray-100">
                 {% for record in records %}
                 <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        {% if record.photo %}
+                        <img src="{{ record.photo }}" alt="{{ record.student.name }}"
+                            class="w-12 h-12 rounded-full object-cover border-2 border-gray-200">
+                        {% else %}
+                        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        {% endif %}
+                    </td>
                     <td class="px-6 py-4 text-gray-600 font-medium">
                         {{ record.date.strftime('%Y-%m-%d') }}
                     </td>
@@ -58,7 +73,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
                         <i class="fa-solid fa-clipboard-list text-3xl mb-3 block"></i>
                         No records found for this selection
                     </td>
@@ -68,6 +83,10 @@
         </table>
     </div>
 </div>
+
+<!-- Include jsPDF library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
 <script>
     function exportTableToCSV(filename) {
@@ -97,6 +116,68 @@
         downloadLink.style.display = "none";
         document.body.appendChild(downloadLink);
         downloadLink.click();
+    }
+
+    function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Add title
+        doc.setFontSize(18);
+        doc.setTextColor(99, 102, 241);
+        doc.text('Attendance Report', 14, 22);
+
+        // Add date
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+
+        // Get table data
+        const table = document.getElementById('reportTable');
+        const rows = [];
+        const headers = [];
+
+        // Get headers (skip Photo column for PDF)
+        const headerCells = table.querySelectorAll('thead th');
+        for (let i = 1; i < headerCells.length; i++) { // Start from 1 to skip Photo
+            headers.push(headerCells[i].innerText);
+        }
+
+        // Get data rows
+        const dataRows = table.querySelectorAll('tbody tr');
+        dataRows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length > 1) { // Skip empty state row
+                const rowData = [];
+                for (let i = 1; i < cells.length; i++) { // Start from 1 to skip Photo
+                    rowData.push(cells[i].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim());
+                }
+                rows.push(rowData);
+            }
+        });
+
+        // Generate table
+        doc.autoTable({
+            head: [headers],
+            body: rows,
+            startY: 35,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [99, 102, 241],
+                textColor: 255,
+                fontStyle: 'bold'
+            },
+            styles: {
+                fontSize: 9,
+                cellPadding: 3
+            },
+            alternateRowStyles: {
+                fillColor: [245, 247, 250]
+            }
+        });
+
+        // Save PDF
+        doc.save('attendance_report.pdf');
     }
 </script>
 {% endblock %}

@@ -94,6 +94,7 @@ def add_student():
     roll_number = data.get('roll_number')
     email = data.get('email')
     face_descriptor = data.get('face_descriptor') # List/Array from JS
+    profile_image = data.get('profile_image')  # Base64 encoded image
 
     if Student.query.filter_by(roll_number=roll_number).first():
         return jsonify({'error': 'Roll number already exists'}), 400
@@ -102,7 +103,8 @@ def add_student():
         name=name, 
         roll_number=roll_number, 
         email=email,
-        face_encoding=json.dumps(face_descriptor)
+        face_encoding=json.dumps(face_descriptor),
+        profile_image=profile_image
     )
     db.session.add(new_student)
     db.session.commit()
@@ -133,6 +135,8 @@ def attendance_page():
 def mark_attendance():
     data = request.json
     student_id = data.get('student_id')
+    photo = data.get('photo')  # Base64 encoded photo
+    detected_objects = data.get('detected_objects')  # JSON array of objects
     
     # Check if already marked for today
     today = datetime.utcnow().date()
@@ -141,7 +145,14 @@ def mark_attendance():
     if existing:
         return jsonify({'message': 'Attendance already marked', 'status': 'duplicate'}), 200
 
-    new_attendance = Attendance(student_id=student_id, status='Present', date=today, time=datetime.utcnow().time())
+    new_attendance = Attendance(
+        student_id=student_id, 
+        status='Present', 
+        date=today, 
+        time=datetime.utcnow().time(),
+        photo=photo,
+        detected_objects=json.dumps(detected_objects) if detected_objects else None
+    )
     db.session.add(new_attendance)
     db.session.commit()
     
