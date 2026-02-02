@@ -43,11 +43,14 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password, password):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash('Invalid username or password')
+        try:
+            user = User.query.filter_by(username=username).first()
+            if user and check_password_hash(user.password, password):
+                login_user(user)
+                return redirect(url_for('dashboard'))
+            flash('Invalid username or password')
+        except Exception as e:
+            flash(f"System Error: {str(e)}")
     return render_template('login.html')
 
 @app.route('/logout')
