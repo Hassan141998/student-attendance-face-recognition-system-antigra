@@ -41,6 +41,8 @@ def debug():
         'db_url': app.config.get('SQLALCHEMY_DATABASE_URI', '').split('@')[-1] if app.config.get('SQLALCHEMY_DATABASE_URI') else 'None',
         'models_loaded': True
     })
+
+@login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
