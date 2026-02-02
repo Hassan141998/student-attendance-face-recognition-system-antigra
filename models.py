@@ -5,6 +5,7 @@ from datetime import datetime
 db = SQLAlchemy()
 
 # Database Models - Updated for advanced features
+# Version: 2.0 - Fixed relationship structure
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
