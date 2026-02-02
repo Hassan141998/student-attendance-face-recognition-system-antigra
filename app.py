@@ -218,8 +218,8 @@ def init_database():
                 admin = User(username='admin', password=generate_password_hash('admin123'))
                 db.session.add(admin)
                 db.session.commit()
-                return jsonify({'message': 'Database initialized successfully! Admin user created (admin/admin123)'}), 200
-            return jsonify({'message': 'Database tables updated. Admin user already exists.'}), 200
+                return jsonify({'message': 'v2.2: Database initialized successfully! Admin user created (admin/admin123)'}), 200
+            return jsonify({'message': 'v2.2: Database tables updated. Admin user already exists.'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
