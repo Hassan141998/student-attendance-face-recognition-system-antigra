@@ -19,7 +19,6 @@ class Student(db.Model):
     face_encoding = db.Column(db.Text)  # Store as JSON string
     profile_image = db.Column(db.Text)  # Store base64 encoded image
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    attendances = db.relationship('Attendance', backref='student', lazy=True)
 
 class Attendance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -29,3 +28,5 @@ class Attendance(db.Model):
     status = db.Column(db.String(20), default='Present')  # Present, Absent, Late
     photo = db.Column(db.Text)  # Store base64 encoded photo when marking attendance
     detected_objects = db.Column(db.Text)  # Store JSON array of detected objects
+    # Relationship to Student
+    student = db.relationship('Student', backref='attendances')
